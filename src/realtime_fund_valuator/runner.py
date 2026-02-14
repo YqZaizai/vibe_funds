@@ -40,6 +40,19 @@ def _format_record(e: FundEstimate) -> str:
     )
 
 
+def _format_holding_rows(e: FundEstimate) -> list[str]:
+    if not e.holdings_snapshot:
+        return [f"{e.timestamp}	{e.fund_code}	-	-	-	N/A	no_holdings"]
+
+    rows: list[str] = []
+    for item in e.holdings_snapshot:
+        code, name, weight, change = item.split("\t")
+        rows.append(
+            f"{e.timestamp}\t{e.fund_code}\t{code}\t{name}\t{weight}\t{change}\t{e.method}"
+        )
+    return rows
+
+
 def analyze_failure_reason(detail: str) -> str:
     if "净值读取失败" in detail:
         return "nav_fetch_failed"
@@ -74,6 +87,7 @@ def run_once(
     hit_output_file: Path,
     miss_output_file: Path,
     miss_analysis_file: Path,
+    holdings_output_file: Path,
     min_coverage: float,
 ) -> None:
     codes = load_fund_codes(funds_path)
@@ -83,6 +97,11 @@ def run_once(
     append_results(output_file, [_format_record(e) for e in estimates])
     append_results(hit_output_file, [_format_record(e) for e in hits])
     append_results(miss_output_file, [_format_record(e) for e in fails])
+
+    holding_rows: list[str] = []
+    for e in estimates:
+        holding_rows.extend(_format_holding_rows(e))
+    append_results(holdings_output_file, holding_rows)
 
     ts = estimates[0].timestamp if estimates else time.strftime("%Y-%m-%d %H:%M:%S")
     analysis_header = [f"{ts}\ttotal={len(estimates)}\thit={len(hits)}\tfail={len(fails)}"]
@@ -96,6 +115,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--hit-output-file", default="valuation_hits.txt", help="有效命中结果txt（追加）")
     p.add_argument("--miss-output-file", default="valuation_misses.txt", help="未命中结果txt（追加）")
     p.add_argument("--miss-analysis-file", default="valuation_miss_analysis.txt", help="未命中分析txt（追加）")
+    p.add_argument("--holdings-output-file", default="valuation_holdings.txt", help="基金重仓股占比和涨跌明细txt（追加）")
     p.add_argument("--interval-seconds", type=int, default=60, help="刷新周期（固定60秒）")
     p.add_argument("--min-coverage", type=float, default=35.0, help="持仓估值最小覆盖率")
     p.add_argument("--proxy", default="", help="可选代理地址，例如 http://127.0.0.1:7890")
@@ -115,6 +135,7 @@ def main() -> None:
             hit_output_file=Path(args.hit_output_file),
             miss_output_file=Path(args.miss_output_file),
             miss_analysis_file=Path(args.miss_analysis_file),
+            holdings_output_file=Path(args.holdings_output_file),
             min_coverage=args.min_coverage,
         )
         if args.once:
