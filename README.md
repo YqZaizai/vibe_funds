@@ -11,11 +11,13 @@
   - `valuation_miss_analysis.txt`：失败原因统计（便于后续迭代）
   - `valuation_holdings.txt`：每只基金重仓股占比及对应实时涨跌
 - 刷新周期固定 1 分钟。
+- 基金估值按数据源网络请求并行执行（默认 8 线程），降低逐个查询阻塞。
 - 估值逻辑：
   1. 优先基于基金前十大持仓（股票/ETF等）实时行情做加权估值。
   2. 如果持仓行情覆盖不足，则回退到基金跟踪指数估值（适用于部分 QDII/指数基金）。
 - 支持 QDII：持仓行情查询支持 A 股 / 港股 / 美股代码格式。
 - 支持 `--proxy`（适配 VPN/代理网络环境）。
+- 每条估值结果会标注 `source`，指明使用到的数据源 API 组合。
 
 ## 环境建议（与你提供的 conda 环境兼容）
 你提供的 `fundnew` 环境已包含 `python=3.10`、`setuptools`、`requests`、`beautifulsoup4` 等依赖，可直接运行：
@@ -50,6 +52,12 @@ PYTHONPATH=src python -m realtime_fund_valuator.runner --proxy http://127.0.0.1:
 
 > 刷新周期固定为 1 分钟。即使传入其它周期参数，也会强制按 60 秒执行。
 
+可通过 `--max-workers` 调整并发线程数（默认 8）：
+
+```bash
+PYTHONPATH=src python -m realtime_fund_valuator.runner --once --max-workers 12
+```
+
 ## 输出说明
 每条估值记录字段（tab 分隔）：
 - 时间戳
@@ -60,6 +68,7 @@ PYTHONPATH=src python -m realtime_fund_valuator.runner --proxy http://127.0.0.1:
 - 方法（holdings / index / unavailable）
 - 覆盖率
 - 说明
+- 数据源（`source=...`）
 
 ### 失败分析分类
 当前会将未命中原因归类为：
