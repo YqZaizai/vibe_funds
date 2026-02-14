@@ -1,6 +1,7 @@
 from realtime_fund_valuator.models import FundEstimate
 from realtime_fund_valuator.runner import (
     _format_holding_rows,
+    _format_record,
     analyze_failure_reason,
     split_effective_and_failed,
 )
@@ -51,3 +52,10 @@ def test_format_holding_rows_no_data():
     e = _e("unavailable", 0.0, "x")
     rows = _format_holding_rows(e)
     assert rows[0].endswith("no_holdings")
+
+
+def test_format_record_contains_source():
+    e = _e("holdings", 1.01, "ok")
+    e.source_api = "sina_hq"
+    row = _format_record(e)
+    assert "source=sina_hq" in row

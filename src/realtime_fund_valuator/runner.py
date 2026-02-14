@@ -36,6 +36,7 @@ def _format_record(e: FundEstimate) -> str:
             e.method,
             f"coverage={e.coverage_percent:.2f}%",
             e.detail,
+            f"source={e.source_api or 'unknown'}",
         ]
     )
 
@@ -89,9 +90,10 @@ def run_once(
     miss_analysis_file: Path,
     holdings_output_file: Path,
     min_coverage: float,
+    max_workers: int,
 ) -> None:
     codes = load_fund_codes(funds_path)
-    estimates = estimate_many(codes, min_coverage=min_coverage)
+    estimates = estimate_many(codes, min_coverage=min_coverage, max_workers=max_workers)
     hits, fails = split_effective_and_failed(estimates)
 
     append_results(output_file, [_format_record(e) for e in estimates])
@@ -119,6 +121,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--interval-seconds", type=int, default=60, help="刷新周期（固定60秒）")
     p.add_argument("--min-coverage", type=float, default=35.0, help="持仓估值最小覆盖率")
     p.add_argument("--proxy", default="", help="可选代理地址，例如 http://127.0.0.1:7890")
+    p.add_argument("--max-workers", type=int, default=8, help="并行估值线程数")
     p.add_argument("--once", action="store_true", help="只执行一次，便于联调")
     return p
 
@@ -137,6 +140,7 @@ def main() -> None:
             miss_analysis_file=Path(args.miss_analysis_file),
             holdings_output_file=Path(args.holdings_output_file),
             min_coverage=args.min_coverage,
+            max_workers=args.max_workers,
         )
         if args.once:
             break

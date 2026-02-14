@@ -27,4 +27,5 @@ class FundEstimate:
     method: Literal["holdings", "index", "unavailable"]
     coverage_percent: float
     detail: str
+    source_api: str = ""
     holdings_snapshot: tuple[str, ...] = field(default_factory=tuple)

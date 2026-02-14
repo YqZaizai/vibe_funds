@@ -3,6 +3,7 @@ from __future__ import annotations
 import datetime as dt
 import json
 import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from html import unescape
 from typing import Iterable
 from urllib.error import HTTPError, URLError
@@ -121,16 +122,19 @@ def _to_sina_symbol(code: str) -> str | None:
     return None
 
 
-def fetch_realtime_quote_change_percent(raw_codes: Iterable[str]) -> dict[str, float]:
-    symbol_pairs: list[tuple[str, str]] = []
-    for code in raw_codes:
-        symbol = _to_sina_symbol(code)
-        if symbol:
-            symbol_pairs.append((code, symbol))
+def _market_group(symbol: str) -> str:
+    if symbol.startswith(("sh", "sz")):
+        return "cn"
+    if symbol.startswith("hk"):
+        return "hk"
+    if symbol.startswith("us"):
+        return "us"
+    return "other"
 
+
+def _fetch_sina_group_quotes(symbol_pairs: list[tuple[str, str]]) -> dict[str, float]:
     if not symbol_pairs:
         return {}
-
     symbols = ",".join(sym for _, sym in symbol_pairs)
     url = f"https://hq.sinajs.cn/list={symbols}"
     text = _http_get(url, referer="https://finance.sina.com.cn")
@@ -159,6 +163,32 @@ def fetch_realtime_quote_change_percent(raw_codes: Iterable[str]) -> dict[str, f
         if symbol in by_symbol:
             result[raw] = by_symbol[symbol]
     return result
+
+
+def fetch_realtime_quote_change_percent(raw_codes: Iterable[str]) -> dict[str, float]:
+    symbol_pairs: list[tuple[str, str]] = []
+    for code in raw_codes:
+        symbol = _to_sina_symbol(code)
+        if symbol:
+            symbol_pairs.append((code, symbol))
+
+    if not symbol_pairs:
+        return {}
+
+    grouped: dict[str, list[tuple[str, str]]] = {"cn": [], "hk": [], "us": [], "other": []}
+    for raw, sym in symbol_pairs:
+        grouped[_market_group(sym)].append((raw, sym))
+
+    chunks = [v for v in grouped.values() if v]
+    if len(chunks) <= 1:
+        return _fetch_sina_group_quotes(symbol_pairs)
+
+    merged: dict[str, float] = {}
+    with ThreadPoolExecutor(max_workers=min(4, len(chunks))) as executor:
+        futures = [executor.submit(_fetch_sina_group_quotes, chunk) for chunk in chunks]
+        for future in as_completed(futures):
+            merged.update(future.result())
+    return merged
 
 
 def _parse_sina_change_percent(symbol: str, fields: list[str]) -> float | None:
