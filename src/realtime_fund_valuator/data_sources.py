@@ -6,7 +6,8 @@ import re
 from html import unescape
 from typing import Iterable
 from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
+from urllib.parse import urlparse
+from urllib.request import ProxyHandler, Request, build_opener, install_opener, urlopen
 
 from .models import Holding
 
@@ -19,6 +20,22 @@ UA = (
 
 class DataSourceError(RuntimeError):
     pass
+
+
+def configure_proxy(proxy_url: str | None) -> None:
+    """Configure process-wide HTTP(S) proxy for urllib.
+
+    Example: http://127.0.0.1:7890 or socks5://127.0.0.1:1080
+    """
+    if not proxy_url:
+        return
+    parsed = urlparse(proxy_url)
+    if not parsed.scheme or not parsed.netloc:
+        raise ValueError(f"无效代理地址: {proxy_url}")
+
+    opener = build_opener()
+    opener.add_handler(ProxyHandler({"http": proxy_url, "https": proxy_url}))
+    install_opener(opener)
 
 
 def _http_get(url: str, referer: str | None = None) -> str:
