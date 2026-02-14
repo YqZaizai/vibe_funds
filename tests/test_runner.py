@@ -1,5 +1,9 @@
 from realtime_fund_valuator.models import FundEstimate
-from realtime_fund_valuator.runner import analyze_failure_reason, split_effective_and_failed
+from realtime_fund_valuator.runner import (
+    _format_holding_rows,
+    analyze_failure_reason,
+    split_effective_and_failed,
+)
 
 
 def _e(method: str, nav: float, detail: str) -> FundEstimate:
@@ -32,3 +36,18 @@ def test_failure_reason_classification():
     assert analyze_failure_reason("缺少可用持仓/指数行情") == "quote_or_index_unavailable"
     assert analyze_failure_reason("数据源异常: z") == "datasource_error"
     assert analyze_failure_reason("其他") == "other"
+
+
+def test_format_holding_rows():
+    e = _e("holdings", 1.01, "ok")
+    e.holdings_snapshot = ("600519\t贵州茅台\t8.20%\t+1.230%",)
+    rows = _format_holding_rows(e)
+    assert len(rows) == 1
+    assert "600519" in rows[0]
+    assert "8.20%" in rows[0]
+
+
+def test_format_holding_rows_no_data():
+    e = _e("unavailable", 0.0, "x")
+    rows = _format_holding_rows(e)
+    assert rows[0].endswith("no_holdings")

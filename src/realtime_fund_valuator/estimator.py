@@ -30,8 +30,19 @@ def estimate_fund(fund_code: str, min_coverage: float = 35.0) -> FundEstimate:
         )
 
     holdings = fetch_fund_holdings(fund_code, topn=10)
+    quote_map: dict[str, float] = {}
+    holdings_snapshot: list[str] = []
     if holdings:
         quote_map = fetch_realtime_quote_change_percent(h.code for h in holdings)
+        for h in holdings:
+            if h.code in quote_map:
+                chg = f"{quote_map[h.code]:+.3f}%"
+            else:
+                chg = "N/A"
+            holdings_snapshot.append(
+                f"{h.code}	{h.name}	{h.weight_percent:.2f}%	{chg}"
+            )
+
         weighted_change = 0.0
         coverage = 0.0
         used = 0
@@ -53,6 +64,7 @@ def estimate_fund(fund_code: str, min_coverage: float = 35.0) -> FundEstimate:
                 method="holdings",
                 coverage_percent=coverage,
                 detail=f"基于前10大持仓估值，命中{used}/{len(holdings)}，净值日期{nav_date}",
+                holdings_snapshot=tuple(holdings_snapshot),
             )
 
     # Fallback: index-driven estimate (useful for many QDII/index funds)
@@ -71,6 +83,7 @@ def estimate_fund(fund_code: str, min_coverage: float = 35.0) -> FundEstimate:
                 method="index",
                 coverage_percent=100.0,
                 detail=f"基于跟踪指数估值（{','.join(idx_change.keys())}），净值日期{nav_date}",
+                holdings_snapshot=tuple(holdings_snapshot),
             )
 
     return FundEstimate(
@@ -82,6 +95,7 @@ def estimate_fund(fund_code: str, min_coverage: float = 35.0) -> FundEstimate:
         method="unavailable",
         coverage_percent=0.0,
         detail=f"缺少可用持仓/指数行情，净值日期{nav_date}",
+        holdings_snapshot=tuple(holdings_snapshot),
     )
 
 

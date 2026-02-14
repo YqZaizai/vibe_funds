@@ -9,6 +9,7 @@
   - `valuation_hits.txt`：有效命中（可用于实时监控）
   - `valuation_misses.txt`：未有效命中
   - `valuation_miss_analysis.txt`：失败原因统计（便于后续迭代）
+  - `valuation_holdings.txt`：每只基金重仓股占比及对应实时涨跌
 - 刷新周期固定 1 分钟。
 - 估值逻辑：
   1. 优先基于基金前十大持仓（股票/ETF等）实时行情做加权估值。

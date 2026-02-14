@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal
 
 
@@ -27,3 +27,4 @@ class FundEstimate:
     method: Literal["holdings", "index", "unavailable"]
     coverage_percent: float
     detail: str
+    holdings_snapshot: tuple[str, ...] = field(default_factory=tuple)
